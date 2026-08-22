@@ -1,0 +1,37 @@
+{
+  "name": "@logsense/node",
+  "version": "0.1.0",
+  "description": "Node SDK for LogSense — structured log ingestion with automatic AI-powered error analysis.",
+  "main": "index.js",
+  "types": "index.d.ts",
+  "type": "commonjs",
+  "files": [
+    "index.js",
+    "index.d.ts",
+    "README.md"
+  ],
+  "scripts": {
+    "test": "node test/smoke.mjs"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "keywords": [
+    "logging",
+    "observability",
+    "logs",
+    "errors",
+    "error-tracking",
+    "ai",
+    "root-cause",
+    "logsense"
+  ],
+  "author": "Aryan Goyal",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/AryanAg08/LogSense-sdk-node"
+  },
+  "homepage": "https://aryangoyal.space",
+  "dependencies": {}
+}
