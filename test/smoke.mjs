@@ -139,4 +139,71 @@ const ok = (msg) => { passed++; console.log(`  ✓ ${msg}`) }
   ok(`bounded queue drops + counts (dropped=${client.dropped})`)
 }
 
-console.log(`\nPASS  ${passed}/4  Node SDK wire format + reliability contract`)
+// ── Test 5: span wire format · parent/child · attrs · error · log correlation ─
+{
+  const s = startServer()
+  await s.listen()
+  const client = new LogSenseClient('ls_live_test_key', {
+    service: 'trace-svc', environment: 'test', endpoint: s.url(), flushIntervalMs: 50,
+  })
+
+  // Active span: nested child links up, and a log inside inherits the trace ID.
+  const parentTrace = await client.startActiveSpan('GET /checkout', { kind: 'server' }, async (span) => {
+    client.log('info', 'handling checkout')
+    await client.startActiveSpan('db.query', { kind: 'client', attributes: { table: 'orders' } }, async () => {})
+    return span.traceID
+  })
+
+  // A thrown error is recorded on the span and re-thrown.
+  await assert.rejects(
+    () => client.startActiveSpan('will-fail', async () => { throw new Error('boom') }),
+    /boom/,
+    'startActiveSpan re-throws',
+  )
+
+  await client.shutdown()
+
+  const traceReqs = s.received.filter((r) => r.url.endsWith('/v1/traces/batch'))
+  assert.ok(traceReqs.length > 0, 'posts spans to /v1/traces/batch')
+  for (const r of traceReqs) {
+    assert.equal(r.method, 'POST')
+    assert.equal(r.apiKey, 'ls_live_test_key', 'sends X-API-Key')
+    assert.ok(Array.isArray(r.body.spans), 'body is { spans: [...] }')
+  }
+  const spans = traceReqs.flatMap((r) => r.body.spans)
+
+  const server = spans.find((sp) => sp.name === 'GET /checkout')
+  const child = spans.find((sp) => sp.name === 'db.query')
+  const failed = spans.find((sp) => sp.name === 'will-fail')
+  assert.ok(server && child && failed, 'all three spans delivered')
+
+  assert.equal(server.source, 'sdk-node', 'span tagged source=sdk-node')
+  assert.equal(server.service, 'trace-svc', 'service stamped')
+  assert.equal(server.kind, 'server', 'kind preserved')
+  assert.match(server.traceID, /^[0-9a-f]{32}$/, 'trace ID is 16-byte hex')
+  assert.match(server.spanID, /^[0-9a-f]{16}$/, 'span ID is 8-byte hex')
+  assert.ok(!server.parentSpanID, 'root span has no parent')
+  assert.ok(typeof server.durationMs === 'number' && server.durationMs >= 0, 'durationMs recorded')
+  assert.ok(
+    !Number.isNaN(Date.parse(server.startTime)) && !Number.isNaN(Date.parse(server.endTime)),
+    'start/end times set',
+  )
+
+  assert.equal(child.traceID, server.traceID, 'child shares the parent trace')
+  assert.equal(child.parentSpanID, server.spanID, 'child links to parent span')
+  assert.deepEqual(child.attributes, { table: 'orders' }, 'span attributes preserved')
+
+  assert.equal(failed.statusCode, 'ERROR', 'thrown error marks span ERROR')
+  assert.equal(failed.statusMessage, 'boom', 'error message recorded')
+  assert.equal(failed.attributes.error, 'boom', 'error attribute recorded')
+
+  const logs = s.received.filter((r) => r.url.endsWith('/v1/logs/batch')).flatMap((r) => r.body.logs)
+  const correlated = logs.find((l) => l.message === 'handling checkout')
+  assert.ok(correlated, 'the in-span log was delivered')
+  assert.equal(correlated.traceID, parentTrace, 'log inside a span inherits its trace ID')
+
+  s.close()
+  ok('span wire format · parent/child · attrs · error · log correlation')
+}
+
+console.log(`\nPASS  ${passed}/5  Node SDK wire format + reliability contract`)
