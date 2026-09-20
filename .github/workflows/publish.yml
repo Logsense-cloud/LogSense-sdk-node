@@ -30,16 +30,16 @@ jobs:
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
-      - name: Notify Slack
+      - name: Announce in #package-release
         if: always()
         run: |
+          PACKAGE_NAME=$(node -p "require('./package.json').name")
           if [ "${{ job.status }}" = "success" ]; then
-            STATUS_EMOJI=":white_check_mark:"
-            STATUS_TEXT="published successfully"
+            curl -s -X POST -H 'Content-type: application/json' \
+              --data "{\"text\": \":rocket: *${PACKAGE_NAME}* \`${{ github.event.release.tag_name }}\` has been published to npm!\n<${{ github.event.release.html_url }}|View release notes>\"}" \
+              "${{ secrets.SLACK_WEBHOOK_URL }}"
           else
-            STATUS_EMOJI=":x:"
-            STATUS_TEXT="failed to publish"
+            curl -s -X POST -H 'Content-type: application/json' \
+              --data "{\"text\": \":x: *${PACKAGE_NAME}* \`${{ github.event.release.tag_name }}\` failed to publish to npm.\n<${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|View workflow run>\"}" \
+              "${{ secrets.SLACK_WEBHOOK_URL }}"
           fi
-          curl -s -X POST -H 'Content-type: application/json' \
-            --data "{\"text\": \"${STATUS_EMOJI} *${{ github.repository }}* ${STATUS_TEXT} — release *${{ github.event.release.tag_name }}* (<${{ github.event.release.html_url }}|view release>)\"}" \
-            "${{ secrets.SLACK_WEBHOOK_URL }}"
