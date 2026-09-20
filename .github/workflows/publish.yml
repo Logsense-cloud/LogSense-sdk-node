@@ -29,3 +29,17 @@ jobs:
         run: npm publish --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Notify Slack
+        if: always()
+        run: |
+          if [ "${{ job.status }}" = "success" ]; then
+            STATUS_EMOJI=":white_check_mark:"
+            STATUS_TEXT="published successfully"
+          else
+            STATUS_EMOJI=":x:"
+            STATUS_TEXT="failed to publish"
+          fi
+          curl -s -X POST -H 'Content-type: application/json' \
+            --data "{\"text\": \"${STATUS_EMOJI} *${{ github.repository }}* ${STATUS_TEXT} — release *${{ github.event.release.tag_name }}* (<${{ github.event.release.html_url }}|view release>)\"}" \
+            "${{ secrets.SLACK_WEBHOOK_URL }}"
