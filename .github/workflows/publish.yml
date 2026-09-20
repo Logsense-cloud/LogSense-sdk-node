@@ -1,0 +1,45 @@
+name: Publish to npm
+
+on:
+  release:
+    types: [released]
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund || npm install --no-audit --no-fund
+
+      - name: Run tests
+        run: npm test
+
+      - name: Publish to npm
+        run: npm publish --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Announce in #package-release
+        if: always()
+        run: |
+          PACKAGE_NAME=$(node -p "require('./package.json').name")
+          if [ "${{ job.status }}" = "success" ]; then
+            curl -s -X POST -H 'Content-type: application/json' \
+              --data "{\"text\": \":rocket: *${PACKAGE_NAME}* \`${{ github.event.release.tag_name }}\` has been published to npm!\n<${{ github.event.release.html_url }}|View release notes>\"}" \
+              "${{ secrets.SLACK_WEBHOOK_URL }}"
+          else
+            curl -s -X POST -H 'Content-type: application/json' \
+              --data "{\"text\": \":x: *${PACKAGE_NAME}* \`${{ github.event.release.tag_name }}\` failed to publish to npm.\n<${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|View workflow run>\"}" \
+              "${{ secrets.SLACK_WEBHOOK_URL }}"
+          fi
