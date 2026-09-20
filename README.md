@@ -4,7 +4,7 @@
 [![Node](https://img.shields.io/badge/node-%3E%3D18-blue)](https://nodejs.org)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
-The official Node SDK for [LogSense](https://aryangoyal.space) — structured log ingestion with automatic AI-powered error analysis.
+The official Node SDK for [LogSense](https://logsense.cloud) — structured log ingestion with automatic AI-powered error analysis.
 
 No dependencies. Requires **Node 18+** (uses the built-in `fetch` and `AbortSignal.timeout`).
 
