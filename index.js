@@ -8,7 +8,12 @@
  * surfaced errors, and stable messages so repeated errors group correctly.
  */
 
-const DEFAULT_ENDPOINT = 'https://api.logsense.cloud/ai-service'
+// api.logsense.cloud is not a LogSense host. It resolves to 52.66.72.233 and
+// answers 502 to everything, so every batch sent to it fails as a retryable 5xx,
+// exhausts its retries and is dropped. With no onError handler configured that
+// is completely silent: the application logs fine locally and nothing ever
+// arrives. The Go SDK already points at services.logsense.cloud.
+const DEFAULT_ENDPOINT = 'https://services.logsense.cloud/ai-service'
 const DEFAULT_BATCH_SIZE = 50
 const DEFAULT_FLUSH_INTERVAL_MS = 2000
 const DEFAULT_TIMEOUT_MS = 5000
