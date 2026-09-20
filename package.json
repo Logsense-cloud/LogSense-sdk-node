@@ -1,6 +1,6 @@
 {
   "name": "@logsense/node",
-  "version": "0.1.0",
+  "version": "1.0.1",
   "description": "Node SDK for LogSense — structured log ingestion with automatic AI-powered error analysis.",
   "main": "index.js",
   "types": "index.d.ts",
@@ -32,6 +32,6 @@
     "type": "git",
     "url": "https://github.com/Logsense-tech/LogSense-sdk-node"
   },
-  "homepage": "https://aryangoyal.space",
+  "homepage": "https://logsense.cloud",
   "dependencies": {}
 }

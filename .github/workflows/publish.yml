@@ -32,14 +32,35 @@ jobs:
 
       - name: Announce in #package-release
         if: always()
+        env:
+          JOB_STATUS: ${{ job.status }}
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+          RELEASE_URL: ${{ github.event.release.html_url }}
+          RELEASE_BODY: ${{ github.event.release.body }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
         run: |
-          PACKAGE_NAME=$(node -p "require('./package.json').name")
-          if [ "${{ job.status }}" = "success" ]; then
-            curl -s -X POST -H 'Content-type: application/json' \
-              --data "{\"text\": \":rocket: *${PACKAGE_NAME}* \`${{ github.event.release.tag_name }}\` has been published to npm!\n<${{ github.event.release.html_url }}|View release notes>\"}" \
-              "${{ secrets.SLACK_WEBHOOK_URL }}"
-          else
-            curl -s -X POST -H 'Content-type: application/json' \
-              --data "{\"text\": \":x: *${PACKAGE_NAME}* \`${{ github.event.release.tag_name }}\` failed to publish to npm.\n<${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|View workflow run>\"}" \
-              "${{ secrets.SLACK_WEBHOOK_URL }}"
-          fi
+          node -e '
+            const https = require("https");
+            const pkg = require("./package.json");
+            const npmUrl = `https://www.npmjs.com/package/${pkg.name}/v/${pkg.version}`;
+            const { JOB_STATUS, RELEASE_TAG, RELEASE_URL, RELEASE_BODY, RUN_URL, SLACK_WEBHOOK_URL } = process.env;
+
+            const text = JOB_STATUS === "success"
+              ? [
+                  `:rocket: *${pkg.name}* \`${RELEASE_TAG}\` has been published to npm!`,
+                  "",
+                  RELEASE_BODY || "_No release notes provided._",
+                  "",
+                  `<${RELEASE_URL}|View on GitHub> · <${npmUrl}|View on npm>`,
+                ].join("\n")
+              : [
+                  `:x: *${pkg.name}* \`${RELEASE_TAG}\` failed to publish to npm.`,
+                  `<${RUN_URL}|View workflow run>`,
+                ].join("\n");
+
+            const payload = JSON.stringify({ text });
+            const req = https.request(SLACK_WEBHOOK_URL, { method: "POST", headers: { "Content-Type": "application/json" } }, res => res.resume());
+            req.on("error", err => { console.error(err); process.exit(1); });
+            req.end(payload);
+          '
